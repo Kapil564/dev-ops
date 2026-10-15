@@ -30,6 +30,8 @@ jobs:
     permissions: {contents: read, packages: write}
     steps:
       - uses: actions/checkout@v4
+      - name: Set lowercase repository owner
+        run: echo "REPO_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -37,28 +39,28 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build images
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/taskboard-backend:${{ github.sha }} ./backend
-          docker build -t ghcr.io/${{ github.repository_owner }}/taskboard-frontend:${{ github.sha }} ./frontend
+          docker build -t ghcr.io/${{ env.REPO_OWNER }}/taskboard-backend:${{ github.sha }} ./backend
+          docker build -t ghcr.io/${{ env.REPO_OWNER }}/taskboard-frontend:${{ github.sha }} ./frontend
       - name: Scan backend
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/taskboard-backend:${{ github.sha }}
+          image-ref: ghcr.io/${{ env.REPO_OWNER }}/taskboard-backend:${{ github.sha }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '1'
       - name: Scan frontend
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/taskboard-frontend:${{ github.sha }}
+          image-ref: ghcr.io/${{ env.REPO_OWNER }}/taskboard-frontend:${{ github.sha }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '1'
       - name: Push images
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/taskboard-backend:${{ github.sha }}
-          docker push ghcr.io/${{ github.repository_owner }}/taskboard-frontend:${{ github.sha }}
+          docker push ghcr.io/${{ env.REPO_OWNER }}/taskboard-backend:${{ github.sha }}
+          docker push ghcr.io/${{ env.REPO_OWNER }}/taskboard-frontend:${{ github.sha }}
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.KUBE_CONFIG_DATA != ''
     needs: build-scan-push
     runs-on: ubuntu-latest
     permissions: {contents: read, packages: read}
@@ -72,8 +74,10 @@ jobs:
           echo "$KUBE_CONFIG_DATA" | base64 -d > ~/.kube/config
       - name: Deploy with Helm
         run: |
+          REPO_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
           helm upgrade --install taskboard ./helm/taskboard -n taskboard --create-namespace \
             --set backend.tag=${{ github.sha }} \
             --set frontend.tag=${{ github.sha }} \
-            --set backend.image=ghcr.io/${{ github.repository_owner }}/taskboard-backend \
-            --set frontend.image=ghcr.io/${{ github.repository_owner }}/taskboard-frontend
+            --set backend.image=ghcr.io/${REPO_OWNER}/taskboard-backend \
+            --set frontend.image=ghcr.io/${REPO_OWNER}/taskboard-frontend
+
