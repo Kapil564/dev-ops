@@ -211,6 +211,9 @@ The automated CI/CD pipeline triggers on every push and pull request to the `mai
 - **Target Images:** `ghcr.io/kapil564/taskboard-backend:<commit-sha>` and `ghcr.io/kapil564/taskboard-frontend:<commit-sha>`.
 - **Result:** Trivy scans OS packages and Python/Node application libraries. Because the base images use minimal distributions (`python:3.12-slim` and `alpine`) with patched dependencies, zero unfixed HIGH or CRITICAL CVEs were found, satisfying the strict quality gate.
 
+### Screenshot
+![GitHub Actions CI/CD Pipeline](screenshot/ci-cd/image.png)
+
 ---
 
 ## Module M7 — Terraform: AWS Infrastructure as Code (15 Points)
@@ -340,25 +343,18 @@ kubectl port-forward svc/monitoring-grafana 3001:80 -n monitoring
 
 ---
 
-## Module M10 — Final Presentation & Verification Checklist
+## Troubleshooting & Verification Exercises
 
-### Pre-Submission Checklist Verification
+The repository includes hands-on debugging scenarios and load test scripts:
 
-- [x] **Application:** Public GitHub repository active, runs locally via `docker compose up --build`, 6 RESTful endpoints implemented, Alembic sequential migrations present.
-- [x] **Testing:** Automated `pytest` suite passes with 8/8 tests covering models, routes, and statistics.
-- [x] **Docker:** Multi-stage frontend Dockerfile, non-root user in backend Dockerfile, all services containerized.
-- [x] **CI/CD:** GitHub Actions pipeline passes on push to `main`, tests pass, Docker images published to GHCR with commit SHA tags.
-- [x] **Security:** Aqua Security Trivy container scanning configured with failure thresholds; zero secrets committed.
-- [x] **Terraform:** Complete AWS VPC + EKS provisioning code in `us-east-1`; all 52 resources cleanly destroyed post-verification.
-- [x] **Kubernetes & Helm:** Fully parametrized Helm chart with deployments, services, probes, and HPA.
-- [x] **Observability:** Live `/metrics` endpoint returning Prometheus metrics; Prometheus targets operational.
-- [x] **Documentation:** Thorough, reproducible documentation with architecture diagrams, commands, and screenshots.
+1. **Kubernetes Troubleshooting Scenarios (`troubleshooting/`):**
+   - **`broken-image.yaml`**: Demonstrates diagnosing `ImagePullBackOff` / `ErrImagePull` via `kubectl describe pod` and events.
+   - **`broken-service.yaml`**: Demonstrates diagnosing missing endpoint selectors (`<none>` endpoints) resulting in connection failures.
+   - Full reproduction, diagnostic, and resolution steps are detailed in [troubleshooting/README.md](file:///c:/Users/kapil/Desktop/space/session21-python/troubleshooting/README.md).
+
+2. **HPA Load Testing Helper (`scripts/`):**
+   - **`scripts/load-test.sh`** (Linux/macOS) & **`scripts/load-test.ps1`** (Windows PowerShell): Sends 500 requests to trigger the Horizontal Pod Autoscaler and observe dynamic replica scaling.
 
 ---
 
-## Project Maintainer
 
-- **Student / Developer:** Kapil Masih
-- **GitHub Profile:** [@Kapil564](https://github.com/Kapil564)
-- **Repository:** [https://github.com/Kapil564/dev-ops](https://github.com/Kapil564/dev-ops)
-- **Course:** Session 21 DevOps Final Capstone
