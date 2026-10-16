@@ -6,6 +6,8 @@ on:
     branches: [main]
 env:
   REGISTRY: ghcr.io
+  REPO_OWNER: kapil564
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -24,14 +26,13 @@ jobs:
       - name: Build frontend
         run: npm install && npm run build
         working-directory: frontend
+
   build-scan-push:
     needs: test
     runs-on: ubuntu-latest
     permissions: {contents: read, packages: write}
     steps:
       - uses: actions/checkout@v4
-      - name: Set lowercase repository owner
-        run: echo "REPO_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -39,8 +40,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build images
         run: |
-          docker build -t ghcr.io/${{ env.REPO_OWNER }}/taskboard-backend:${{ github.sha }} ./backend
-          docker build -t ghcr.io/${{ env.REPO_OWNER }}/taskboard-frontend:${{ github.sha }} ./frontend
+          docker build -t ghcr.io/${{ env.REPO_OWNER }}/taskboard-backend:${{ github.sha }} -t ghcr.io/${{ env.REPO_OWNER }}/taskboard-backend:latest ./backend
+          docker build -t ghcr.io/${{ env.REPO_OWNER }}/taskboard-frontend:${{ github.sha }} -t ghcr.io/${{ env.REPO_OWNER }}/taskboard-frontend:latest ./frontend
       - name: Scan backend
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -58,26 +59,40 @@ jobs:
       - name: Push images
         run: |
           docker push ghcr.io/${{ env.REPO_OWNER }}/taskboard-backend:${{ github.sha }}
+          docker push ghcr.io/${{ env.REPO_OWNER }}/taskboard-backend:latest
           docker push ghcr.io/${{ env.REPO_OWNER }}/taskboard-frontend:${{ github.sha }}
+          docker push ghcr.io/${{ env.REPO_OWNER }}/taskboard-frontend:latest
+
   deploy:
-    if: github.ref == 'refs/heads/main' && secrets.KUBE_CONFIG_DATA != ''
+    if: github.ref == 'refs/heads/main'
     needs: build-scan-push
     runs-on: ubuntu-latest
     permissions: {contents: read, packages: read}
+    env:
+      KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
     steps:
+      - name: Check Kubeconfig secret
+        id: check_kubeconfig
+        run: |
+          if [ -z "$KUBE_CONFIG_DATA" ]; then
+            echo "has_secret=false" >> $GITHUB_OUTPUT
+            echo "KUBE_CONFIG_DATA secret is not provided; skipping automated deployment."
+          else
+            echo "has_secret=true" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/checkout@v4
+        if: steps.check_kubeconfig.outputs.has_secret == 'true'
       - uses: azure/setup-helm@v4
+        if: steps.check_kubeconfig.outputs.has_secret == 'true'
       - name: Configure kubectl
-        env: {KUBE_CONFIG_DATA: '${{ secrets.KUBE_CONFIG_DATA }}'}
+        if: steps.check_kubeconfig.outputs.has_secret == 'true'
         run: |
           mkdir -p ~/.kube
           echo "$KUBE_CONFIG_DATA" | base64 -d > ~/.kube/config
       - name: Deploy with Helm
+        if: steps.check_kubeconfig.outputs.has_secret == 'true'
         run: |
-          REPO_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
           helm upgrade --install taskboard ./helm/taskboard -n taskboard --create-namespace \
             --set backend.tag=${{ github.sha }} \
-            --set frontend.tag=${{ github.sha }} \
-            --set backend.image=ghcr.io/${REPO_OWNER}/taskboard-backend \
-            --set frontend.image=ghcr.io/${REPO_OWNER}/taskboard-frontend
+            --set frontend.tag=${{ github.sha }}
 

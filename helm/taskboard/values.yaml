@@ -1,8 +1,8 @@
 frontend:
-  image: ghcr.io/YOUR_ORG/taskboard-frontend
+  image: ghcr.io/kapil564/taskboard-frontend
   tag: latest
 backend:
-  image: ghcr.io/YOUR_ORG/taskboard-backend
+  image: ghcr.io/kapil564/taskboard-backend
   tag: latest
 replicaCount: 2
 namespace: taskboard
@@ -12,6 +12,8 @@ postgres:
   database: taskboard
   username: taskboard
   password: taskboard
+  persistence:
+    enabled: false
 ingress:
   enabled: false
   host: taskboard.local
@@ -25,4 +27,4 @@ resources:
   limits: {cpu: 500m, memory: 512Mi}
 monitoring:
   serviceMonitor:
-    enabled: true
+    enabled: false
